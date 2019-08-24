@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +32,8 @@ type Peer struct {
 
 func NewZoneAggregator() (*ZoneAggregator, error) {
 
-	configFile, err := ioutil.ReadFile("./config.json")
+	configPath := os.Getenv("CONFIG_PATH")
+	configFile, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +102,8 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
+
+	fmt.Printf("ZoneAggregator is Running on: %s, TCP: %s, UDP: %s", za.IP, strconv.Itoa(za.TCPPort), strconv.Itoa(za.UDPPort))
 
 	dns.HandleFunc(".", za.RequestHandler)
 
