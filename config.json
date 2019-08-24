@@ -1,0 +1,22 @@
+{
+  "ip": "127.0.0.1",
+  "udp_port": 9000,
+  "tcp_port": 9000,
+  "zone_aggregates": [
+    {
+        "zone": "us-east.example.com.",
+        "ttl": 0,
+        "peers": [
+          {
+            "address": "127.0.0.1:53",
+            "zones": [
+             "us-east-1.example.com.",
+             "us-east-2.example.com.",
+             "us-east-3.example.com.",
+             "us-east-4.example.com."
+            ]
+          }
+        ]
+    } 
+  ]
+}
