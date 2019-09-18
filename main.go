@@ -93,6 +93,15 @@ func (za *ZoneAggregator) RequestHandler(w dns.ResponseWriter, r *dns.Msg) {
 			m.Answer = answer
 			m.Authoritative = true
 			w.WriteMsg(m)
+
+		case dns.TypeAAAA:
+			var answer []dns.RR
+			m := new(dns.Msg)
+			m.Id = r.Id
+			m.SetReply(r)
+			m.Answer = answer
+			m.Authoritative = true
+			w.WriteMsg(m)
 		}
 	}
 }
