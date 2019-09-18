@@ -1,5 +1,5 @@
 
-### Zone Aggregator is used to aggregate Zones on a Bind Server into 1.
+### Zone Aggregator is used to aggregate Multiple DNS Zones on a DNS Server into One.
 
 ### Examples:
 
