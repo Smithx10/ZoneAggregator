@@ -54,19 +54,32 @@ func NewZoneAggregator() (*ZoneAggregator, error) {
 }
 
 func (za *ZoneAggregator) RequestHandler(w dns.ResponseWriter, r *dns.Msg) {
+	fmt.Println(r.Question)
 	for _, q := range r.Question {
 		switch q.Qtype {
+		case dns.TypeCNAME:
+			var answer []dns.RR
+			m := new(dns.Msg)
+			m.Id = r.Id
+			m.SetReply(r)
+			m.Answer = answer
+			m.Authoritative = true
+			m.SetRcode(r, 0)
+
+			w.WriteMsg(m)
 		case dns.TypeA:
 			var answer []dns.RR
 			// See if our query matches any of our aggregate zones
 			for _, aggr := range za.ZoneAggregates {
+				// ToLower the record... Microsoft CNames come in ".NET"
+				// Even if .net is the cname ./facepalm.
+				r.Question[0].Name = strings.ToLower(r.Question[0].Name)
 				if strings.Contains(r.Question[0].Name, aggr.Zone) {
 					for _, peer := range aggr.Peers {
 						for _, zone := range peer.Zones {
 							q := r.Copy()
 							// Convert the names from AggrZone to PeerZone
 							newName := strings.ReplaceAll(q.Question[0].Name, aggr.Zone, zone)
-
 							q.Question[0].Name = newName
 							c := new(dns.Client)
 							in, _, err := c.Exchange(q, peer.Address)
@@ -101,6 +114,8 @@ func (za *ZoneAggregator) RequestHandler(w dns.ResponseWriter, r *dns.Msg) {
 			m.SetReply(r)
 			m.Answer = answer
 			m.Authoritative = true
+			m.SetRcode(r, 0)
+
 			w.WriteMsg(m)
 		}
 	}
@@ -112,7 +127,7 @@ func main() {
 		fmt.Println(err)
 	}
 
-	fmt.Printf("ZoneAggregator is Running on: %s, TCP: %s, UDP: %s", za.IP, strconv.Itoa(za.TCPPort), strconv.Itoa(za.UDPPort))
+	fmt.Printf("ZoneAggregator is Running on: %s, TCP: %s, UDP: %s\n", za.IP, strconv.Itoa(za.TCPPort), strconv.Itoa(za.UDPPort))
 
 	dns.HandleFunc(".", za.RequestHandler)
 
