@@ -58,67 +58,60 @@ func (za *ZoneAggregator) RequestHandler(w dns.ResponseWriter, r *dns.Msg) {
 	for _, q := range r.Question {
 		switch q.Qtype {
 		case dns.TypeCNAME:
-			var answer []dns.RR
-			m := new(dns.Msg)
-			m.Id = r.Id
-			m.SetReply(r)
-			m.Answer = answer
-			m.Authoritative = true
-			m.SetRcode(r, 0)
-
+			m := za.doAggregation(r)
 			w.WriteMsg(m)
 		case dns.TypeA:
-			var answer []dns.RR
-			// See if our query matches any of our aggregate zones
-			for _, aggr := range za.ZoneAggregates {
-				// ToLower the record... Microsoft CNames come in ".NET"
-				// Even if .net is the cname ./facepalm.
-				r.Question[0].Name = strings.ToLower(r.Question[0].Name)
-				if strings.Contains(r.Question[0].Name, aggr.Zone) {
-					for _, peer := range aggr.Peers {
-						for _, zone := range peer.Zones {
-							q := r.Copy()
-							// Convert the names from AggrZone to PeerZone
-							newName := strings.ReplaceAll(q.Question[0].Name, aggr.Zone, zone)
-							q.Question[0].Name = newName
-							c := new(dns.Client)
-							in, _, err := c.Exchange(q, peer.Address)
-							if err != nil {
-								fmt.Printf("Error Received during Query: %s", err.Error())
-							}
+			m := za.doAggregation(r)
+			w.WriteMsg(m)
+		case dns.TypeAAAA:
+			m := za.doAggregation(r)
+			w.WriteMsg(m)
+		case dns.TypeSRV:
+			m := za.doAggregation(r)
+			w.WriteMsg(m)
+		}
+	}
+}
 
-							if len(in.Answer) > 0 {
-								// Convert the names from PeerZone to AggrZone
-								for _, a := range in.Answer {
-									newName := strings.ReplaceAll(a.Header().Name, zone, aggr.Zone)
-									a.Header().Name = newName
-									a.Header().Ttl = aggr.TTL
-									answer = append(answer, a)
-								}
-							}
+func (za *ZoneAggregator) doAggregation(r *dns.Msg) *dns.Msg {
+	var answer []dns.RR
+	// See if our query matches any of our aggregate zones
+	for _, aggr := range za.ZoneAggregates {
+		// ToLower the record... Microsoft CNames come in ".NET"
+		// Even if .net is the cname ./facepalm.
+		r.Question[0].Name = strings.ToLower(r.Question[0].Name)
+		if strings.Contains(r.Question[0].Name, aggr.Zone) {
+			for _, peer := range aggr.Peers {
+				for _, zone := range peer.Zones {
+					q := r.Copy()
+					// Convert the names from AggrZone to PeerZone
+					newName := strings.ReplaceAll(q.Question[0].Name, aggr.Zone, zone)
+					q.Question[0].Name = newName
+					c := new(dns.Client)
+					in, _, err := c.Exchange(q, peer.Address)
+					if err != nil {
+						fmt.Printf("Error Received during Query: %s", err.Error())
+					}
+
+					if len(in.Answer) > 0 {
+						// Convert the names from PeerZone to AggrZone
+						for _, a := range in.Answer {
+							newName := strings.ReplaceAll(a.Header().Name, zone, aggr.Zone)
+							a.Header().Name = newName
+							a.Header().Ttl = aggr.TTL
+							answer = append(answer, a)
 						}
 					}
 				}
 			}
-			m := new(dns.Msg)
-			m.Id = r.Id
-			m.SetReply(r)
-			m.Answer = answer
-			m.Authoritative = true
-			w.WriteMsg(m)
-
-		case dns.TypeAAAA:
-			var answer []dns.RR
-			m := new(dns.Msg)
-			m.Id = r.Id
-			m.SetReply(r)
-			m.Answer = answer
-			m.Authoritative = true
-			m.SetRcode(r, 0)
-
-			w.WriteMsg(m)
 		}
 	}
+	m := new(dns.Msg)
+	m.Id = r.Id
+	m.SetReply(r)
+	m.Answer = answer
+	m.Authoritative = true
+	return m
 }
 
 func main() {
