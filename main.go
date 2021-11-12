@@ -44,6 +44,8 @@ func NewZoneAggregator() (*ZoneAggregator, error) {
 		return nil, err
 	}
 
+	dns.HandleFunc(".", za.RequestHandler)
+
 	tcp := dns.Server{Addr: za.IP + ":" + strconv.Itoa(za.TCPPort), Net: "tcp"}
 	udp := dns.Server{Addr: za.IP + ":" + strconv.Itoa(za.UDPPort), Net: "udp"}
 	// Spin Up Servers
@@ -55,25 +57,12 @@ func NewZoneAggregator() (*ZoneAggregator, error) {
 
 func (za *ZoneAggregator) RequestHandler(w dns.ResponseWriter, r *dns.Msg) {
 	fmt.Println(r.Question)
-	for _, q := range r.Question {
-		switch q.Qtype {
-		case dns.TypeCNAME:
-			m := za.doAggregation(r)
-			w.WriteMsg(m)
-		case dns.TypeA:
-			m := za.doAggregation(r)
-			w.WriteMsg(m)
-		case dns.TypeAAAA:
-			m := za.doAggregation(r)
-			w.WriteMsg(m)
-		case dns.TypeSRV:
-			m := za.doAggregation(r)
-			w.WriteMsg(m)
-		}
-	}
+	m := za.doAggregation(r)
+	w.WriteMsg(m)
 }
 
 func (za *ZoneAggregator) doAggregation(r *dns.Msg) *dns.Msg {
+	m := new(dns.Msg)
 	var answer []dns.RR
 	// See if our query matches any of our aggregate zones
 	for _, aggr := range za.ZoneAggregates {
@@ -106,7 +95,6 @@ func (za *ZoneAggregator) doAggregation(r *dns.Msg) *dns.Msg {
 			}
 		}
 	}
-	m := new(dns.Msg)
 	m.Id = r.Id
 	m.SetReply(r)
 	m.Answer = answer
@@ -121,8 +109,6 @@ func main() {
 	}
 
 	fmt.Printf("ZoneAggregator is Running on: %s, TCP: %s, UDP: %s\n", za.IP, strconv.Itoa(za.TCPPort), strconv.Itoa(za.UDPPort))
-
-	dns.HandleFunc(".", za.RequestHandler)
 
 	// Don't Exit Main
 	for {
